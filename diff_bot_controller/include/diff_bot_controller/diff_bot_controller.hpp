@@ -66,12 +66,20 @@ protected:
 
     double wheel_radius_;
     double wheel_separation_;
+    
+    struct RobotPose
+    {
+        double pose_x = 0;
+        double pose_y = 0;
+        double pose_th = 0;
+
+    }robot_pose_;
 
     // odometry params
     struct OdometryParams
     {
       bool open_loop = false;
-      bool enable_odom_tf = true;
+      bool enable_odom_tf = false;
       std::string odom_frame_id = "odom";
       std::string base_frame_id = "base_link";
 

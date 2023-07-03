@@ -206,7 +206,7 @@ namespace diff_bot_controller
     controller_interface::return_type DiffBotController::update(const rclcpp::Time &, const rclcpp::Duration &)
     {
         
-        RCLCPP_INFO(get_node()->get_logger(), "Entered the update phase: working?\n");
+        //RCLCPP_INFO(get_node()->get_logger(), "Entered the update phase: working?\n");
         // to get previous velocity command 
         auto velocity_command = velocity_command_ptr_.readFromRT();
         if (!velocity_command || !(*velocity_command)) 
@@ -231,27 +231,39 @@ namespace diff_bot_controller
         const auto current_time = get_node()->get_clock()->now();
         const rclcpp::Duration dt = current_time - previous_updated_timestamp_;
 
-        struct RobotPose
-        {
-            double pose_x = 0;
-            double pose_y = 0;
-            double pose_th = 0;
-
-        }robot_pose;
+ 
         // do odom calculations here
         if(odom_params_.open_loop == true)
         {
             // Euler integration
-            robot_pose.pose_x = robot_pose.pose_x + dt.seconds()*(v_x_des*cos(robot_pose.pose_th));
-            robot_pose.pose_y = robot_pose.pose_y + dt.seconds()*(v_x_des*sin(robot_pose.pose_th));
-            robot_pose.pose_th = robot_pose.pose_th + dt.seconds()*(omega_des);
+            robot_pose_.pose_x = robot_pose_.pose_x + dt.seconds()*(v_x_des*cos(robot_pose_.pose_th));
+            robot_pose_.pose_y = robot_pose_.pose_y + dt.seconds()*(v_x_des*sin(robot_pose_.pose_th));
+            robot_pose_.pose_th = robot_pose_.pose_th + dt.seconds()*(omega_des);
 
         }
         // put the current time as previous time as the odom calculations are done 
+
+        tf2::Quaternion orientation;
+        orientation.setRPY(0.0,0.0,robot_pose_.pose_th);
+        // populating the odom msg
+        if(current_time > publish_period_ + previous_publish_timestamp_)
+        {
+            previous_publish_timestamp_ = previous_publish_timestamp_ + publish_period_;
+            odom_msg_.header.stamp = current_time;
+            odom_msg_.header.frame_id = odom_params_.odom_frame_id;
+            odom_msg_.child_frame_id = odom_params_.base_frame_id;
+            odom_msg_.pose.pose.position.x = robot_pose_.pose_x;
+            odom_msg_.pose.pose.position.y = robot_pose_.pose_y;
+            odom_msg_.pose.pose.position.z = 0.0;
+            odom_msg_.pose.pose.orientation.x = orientation.x();
+            odom_msg_.pose.pose.orientation.y = orientation.y();
+            odom_msg_.pose.pose.orientation.z = orientation.z();
+            odom_msg_.pose.pose.orientation.w = orientation.w();
+            odom_msg_.twist.twist.linear = (*velocity_command)->linear;
+            odom_msg_.twist.twist.angular = (*velocity_command)->angular;
+            odom_publisher_->publish(odom_msg_);
+        }
         previous_updated_timestamp_ = current_time; 
-        
-
-
 
         return controller_interface::return_type::OK;
     }
